@@ -1,13 +1,14 @@
-from ways import load_map_from_csv, tools
+from ways import load_map_from_csv
 import random as rand
-import . from route_finding_algorithms.py as algorithms
-import . from cost_functions as funcs
+import time
+import route_finding_algorithms as algorithms
+import cost_functions as funcs
 
 def generate_problem_set(roads, size, dist_limit):
     problems = []
 
     # generate problems until we have 'size' problems
-    with tools.dbopen('problems.csv', 'w') as f:
+    with open('db/problems.csv', 'w') as f:
         while len(problems) < size:
             # generate a random source
             src = rand.randint(0, len(roads))
@@ -55,15 +56,27 @@ def solve_problem(roads, alg_name):
             'IDAStar' : (algorithms.find_idastar_route, funcs.heuristic_time)}
 
     alg, heuristic = algs[alg_name]
+    solutions_counter = 0
+    run_times = []
 
     # open the problems we generated and solve them one by one, saving the time taken in a file
     with open('db/problems.csv', 'r') as problem_file, open('results/' + alg_name + "Runs.txt", 'w') as output_file:
         for line in problem_file:
 
+            # just not running too many IDAStar problems
+            if alg_name == 'IDAStar' and solutions_counter == 5:
+                break
+
             # for every problem: solve it, and output the actual time and estimated time
             src, target = line.split(",")
+            start_time = time.time()
             path = alg[0](roads, src, target)
+            run_time = time.time() - start_time
+            run_times.append(run_time)
+
+            # check how many solutions did we make so far
             path_time = str(funcs.path_time(roads, path))
+            solutions_counter += 1
 
             # if there a heuristic output also the estimated heuristic time
             if heuristic is not None:
@@ -71,6 +84,15 @@ def solve_problem(roads, alg_name):
                 output_file.write(str(time_on_heuristic) + "," + path_time + '\n')
             else:
                 output_file.write(path_time + '\n')
+
+            # print the first 10 astar problems
+            if solutions_counter < 10 and alg_name == 'AStar':
+
+                # plot the paths and write them to the solutions_img folder
+
+
+    # return the average algorithm's run time
+    return sum(run_times) / len(run_times)
 
 if __name__ == '__main__':
     roads = load_map_from_csv()
